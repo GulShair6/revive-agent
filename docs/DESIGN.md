@@ -1,8 +1,8 @@
 # ReviveAgent Design Document (v1.0 - Week 1)
 
 ## 1. Problem Statement
-Sales reps spend 4–8 hours/week manually hunting ghosted deals across CRM, email, calendar, and notes.  
-Result: 30–40% of pipeline goes silent, deals die, revenue is lost.  
+Sales reps spend 4–8 hours/week manually hunting ghosted deals across CRM, email, calendar, and notes.
+Result: 30–40% of pipeline goes silent, deals die, revenue is lost.
 Current tools (HubSpot/Salesforce alerts) are rule-based and miss nuanced context.
 
 ## 2. Goals & Success Metrics (MVP)

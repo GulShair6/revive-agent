@@ -10,6 +10,7 @@ dependencies = [
     "langchain-chroma>=1.1.0",
     "langchain-core>=1.2.19",
     "langchain-groq>=1.1.2",
+    "langchain-huggingface>=1.2.1",
     "langchain-text-splitters>=1.1.1",
     "prek>=0.3.6",
     "python-dotenv>=1.2.2",

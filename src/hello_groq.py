@@ -8,25 +8,30 @@ load_dotenv()
 
 # Initialize LLM (change model if rate-limited)
 llm = ChatGroq(
-    model="llama-3.1-8b-instant",          # fast & strong agent model
+    model="llama-3.1-8b-instant",  # fast & strong agent model
     temperature=0.7,
     max_tokens=512,
     api_key=os.getenv("GROQ_API_KEY"),
 )
 
 # Simple conversational prompt
-prompt = ChatPromptTemplate.from_messages([
-    SystemMessage(content=(
-        "You are ReviveAgent, an expert B2B sales revival assistant. "
-        "Your tone is professional, empathetic, concise, and action-oriented. "
-        "You help sales reps revive ghosted deals by suggesting personalized follow-ups."
-    )),
-    MessagesPlaceholder(variable_name="chat_history"),
-    HumanMessage(content="{input}"),
-])
+prompt = ChatPromptTemplate.from_messages(
+    [
+        SystemMessage(
+            content=(
+                "You are ReviveAgent, an expert B2B sales revival assistant. "
+                "Your tone is professional, empathetic, concise, and action-oriented. "
+                "You help sales reps revive ghosted deals by suggesting personalized follow-ups."
+            )
+        ),
+        MessagesPlaceholder(variable_name="chat_history"),
+        HumanMessage(content="{input}"),
+    ]
+)
 
 # Chain: prompt → LLM
 chain = prompt | llm
+
 
 # Simple REPL chat loop
 def chat_loop():
@@ -40,10 +45,12 @@ def chat_loop():
             break
 
         # Invoke chain with history
-        response = chain.invoke({
-            "input": user_input,
-            "chat_history": history,
-        })
+        response = chain.invoke(
+            {
+                "input": user_input,
+                "chat_history": history,
+            }
+        )
 
         ai_reply = response.content
         print("\nReviveAgent:", ai_reply, "\n")
@@ -51,6 +58,7 @@ def chat_loop():
         # Append to history (keeps context)
         history.append(HumanMessage(content=user_input))
         history.append(response)  # AIMessage
+
 
 if __name__ == "__main__":
     chat_loop()

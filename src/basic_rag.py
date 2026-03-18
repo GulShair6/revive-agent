@@ -1,4 +1,3 @@
-import os
 from dotenv import load_dotenv
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
@@ -23,20 +22,20 @@ sample_docs = [
 Stage: Proposal sent 2025-12-10
 Last contact: Email from prospect 'Budget approval pending Q1 budget cycle' on 2026-01-05
 Notes: Demo went well, they loved the analytics dashboard. Competitor is HubSpot but we have better pricing flexibility.""",
-        metadata={"deal_id": "acme-001", "source": "crm_notes"}
+        metadata={"deal_id": "acme-001", "source": "crm_notes"},
     ),
     Document(
         page_content="""Email thread summary:
 Prospect: "We are comparing options, will get back by end of week."
 You: Follow-up sent 2026-02-01 with case study attached.
 No reply since then (18 days silent). Opened email 2 times.""",
-        metadata={"deal_id": "acme-001", "source": "email_thread"}
+        metadata={"deal_id": "acme-001", "source": "email_thread"},
     ),
     Document(
         page_content="""Another stalled deal: Beta Inc - Pilot expired 2026-02-15
 Reason for stall: Waiting on legal review.
 Last email: Legal is reviewing, expect 2-3 weeks.""",
-        metadata={"deal_id": "beta-002", "source": "crm"}
+        metadata={"deal_id": "beta-002", "source": "crm"},
     ),
 ]
 
@@ -45,7 +44,7 @@ vectorstore = Chroma.from_documents(
     documents=sample_docs,
     embedding=embeddings,
     collection_name="reviveagent_deals_v1",
-    persist_directory="./chroma_db"  # creates folder automatically
+    persist_directory="./chroma_db",  # creates folder automatically
 )
 
 # Or if already exists → just load:
@@ -57,7 +56,7 @@ vectorstore = Chroma.from_documents(
 
 retriever = vectorstore.as_retriever(
     search_type="similarity",
-    search_kwargs={"k": 2}  # retrieve top 2 most relevant chunks
+    search_kwargs={"k": 2},  # retrieve top 2 most relevant chunks
 )
 
 # 4. LLM setup (same Groq as before)
@@ -82,16 +81,13 @@ User query / deal description:
 Respond professionally, empathetically, and suggest 1 concrete next action (e.g. email draft)."""
 )
 
+
 # 6. Simple RAG chain
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
-rag_chain = (
-    {"context": retriever | format_docs, "question": RunnablePassthrough()}
-    | rag_prompt
-    | llm
-    | StrOutputParser()
-)
+
+rag_chain = {"context": retriever | format_docs, "question": RunnablePassthrough()} | rag_prompt | llm | StrOutputParser()
 
 # Test it!
 if __name__ == "__main__":
