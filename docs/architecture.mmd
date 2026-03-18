@@ -1,0 +1,21 @@
+flowchart TD
+    A[Sales Rep / Dashboard] --> B[ReviveAgent Backend FastAPI]
+    B --> C[Agent Orchestrator LangGraph]
+    C --> D[Tools Layer]
+    D --> E1[CRM Retriever Tool\nHubSpot/Salesforce API]
+    D --> E2[Email Retriever Tool\nGmail/Outlook IMAP]
+    D --> E3[Calendar & Notes Tool]
+    D --> E4[RAG Retriever\nChroma + Embeddings]
+    D --> E5[Ghosting Predictor\nXGBoost/LightGBM]
+    D --> E6[LLM Generator\nGroq Llama-3.3]
+    C --> F[Action Executor\nDraft Email + Human Approval Queue]
+    F --> G[Output: Daily Digest + Revival Drafts]
+    subgraph "Data Layer"
+        H[Mock CRM JSON + Email Files]
+        I[Vector Store Chroma]
+    end
+    E1 --> H
+    E2 --> H
+    E4 --> I
+    style C fill:#e3f2fd
+    style F fill:#c8e6c9
