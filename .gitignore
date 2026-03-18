@@ -8,5 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
 .env
 .idea
+
+uv.lock
