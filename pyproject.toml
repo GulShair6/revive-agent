@@ -7,8 +7,11 @@ requires-python = ">=3.13"
 dependencies = [
     "groq>=0.37.1",
     "langchain>=1.2.12",
+    "langchain-chroma>=1.1.0",
     "langchain-core>=1.2.19",
     "langchain-groq>=1.1.2",
+    "langchain-text-splitters>=1.1.1",
+    "prek>=0.3.6",
     "python-dotenv>=1.2.2",
 ]
 
