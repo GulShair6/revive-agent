@@ -13,4 +13,5 @@ wheels/
 .idea
 
 uv.lock
-chroma_db/**
+chroma_db*/**
+*.sqlite3
