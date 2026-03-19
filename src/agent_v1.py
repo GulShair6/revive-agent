@@ -7,11 +7,22 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, START, END
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.prebuilt import ToolNode
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.config import RunnableConfig
+from pydantic import BaseModel, Field
 
 load_dotenv()
+
+
+class RevivalPlan(BaseModel):
+    """Final revival recommendation"""
+
+    risk_score: str = Field(..., description="Ghosting risk summary")
+    key_context: str = Field(..., description="2-3 most important facts pulled")
+    suggested_action: str = Field(..., description="One concrete next step")
+    email_draft: str = Field(..., description="Personalized email draft if appropriate")
+
 
 # ----------------------
 # 1. Reuse existing RAG setup (embeddings + vectorstore)
@@ -101,18 +112,48 @@ def agent(state: AgentState):
 # ----------------------
 workflow = StateGraph(state_schema=AgentState)
 
+# 1. Add all nodes FIRST
 workflow.add_node("agent", agent)
 workflow.add_node("tools", ToolNode(tools))
 
+
+# Define and add the generate_draft node BEFORE any edge references it
+def generate_draft(state: AgentState):
+    structured_llm = llm.with_structured_output(RevivalPlan)
+    last_messages = state["messages"]
+    plan = structured_llm.invoke(last_messages)
+    return {"messages": [AIMessage(content=plan.model_dump_json())]}
+
+
+workflow.add_node("generate_draft", generate_draft)
+
+# 2. Now add edges and conditional edges
 workflow.add_edge(START, "agent")
+
+
+# Custom router that can send to generate_draft
+def route_after_agent(state: AgentState):
+    last_msg = state["messages"][-1]
+    if last_msg.tool_calls:
+        return "tools"
+    # Heuristic: look for signal in agent's last message or message count
+    if "draft" in last_msg.content.lower() or len(state["messages"]) > 6:
+        return "generate_draft"
+    return END
+
+
 workflow.add_conditional_edges(
     "agent",
-    tools_condition,  # built-in: if tool calls → "tools", else END
-    {"tools": "tools", END: END},
+    route_after_agent,
+    {"tools": "tools", "generate_draft": "generate_draft", END: END},
 )
-workflow.add_edge("tools", "agent")  # loop back after tool execution
 
+workflow.add_edge("tools", "agent")  # loop back after tools
+workflow.add_edge("generate_draft", END)  # final output node
+
+# Compile after all nodes & edges are added
 graph = workflow.compile(checkpointer=MemorySaver())
+print(graph.get_graph().draw_mermaid())
 
 config = RunnableConfig(recursion_limit=12)
 # ----------------------
