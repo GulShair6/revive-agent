@@ -11,6 +11,7 @@ from langgraph.prebuilt import ToolNode
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.runnables.config import RunnableConfig
 from pydantic import BaseModel, Field
+from src.logger import logger
 
 load_dotenv()
 
@@ -66,7 +67,9 @@ Tool call format must be: {{"name": "tool_name", "arguments": {{"arg1": "value1"
 
 After receiving tool results, reason step-by-step and decide next action or final answer.
 Never repeat the same tool call multiple times unless new information justifies it.
-If you have enough context, give a final answer instead of calling tools again."""
+ONLY use facts explicitly present in the provided context.
+If the answer is not fully supported by context, say: "I don't have enough specific information from past interactions to give a precise revival suggestion."
+Cite sources like: [from CRM note] or [from email 2026-03-01]"""
 
 # Then use this in your agent node instead of raw llm_with_tools.invoke(messages)
 prompt = ChatPromptTemplate.from_messages(
@@ -92,17 +95,18 @@ class AgentState(TypedDict):
 # ----------------------
 def agent(state: AgentState):
     messages = state["messages"]
-    print("Input messages to LLM:", [m.content[:200] for m in messages])  # truncate
+    logger.debug(f"Agent called with {len(messages)} messages")
+    logger.debug(f"Last message: {messages[-1].content[:200] if messages else 'empty'}")
 
     try:
         # Pass a DICT with the key "messages"
         response = chain.invoke({"messages": messages})
-        print("Raw LLM response:", response)
+        logger.info("Raw LLM response:", response)
         if hasattr(response, "tool_calls") and response.tool_calls:
-            print("→ Tool calls:", [c["name"] for c in response.tool_calls])
+            logger.debug("→ Tool calls:", [c["name"] for c in response.tool_calls])
         return {"messages": [response]}
     except Exception as e:
-        print("LLM call failed:", str(e))
+        logger.info("LLM call failed:", str(e))
         # Fallback: return a message saying error
         return {"messages": [AIMessage(content=f"Tool calling failed: {str(e)}. Trying to recover...")]}
 
@@ -155,7 +159,7 @@ workflow.add_edge("generate_draft", END)  # final output node
 memory = MemorySaver()
 graph = workflow.compile(checkpointer=memory, interrupt_before=["generate_draft"])
 
-# print(graph.get_graph().draw_mermaid())
+# logger.info(graph.get_graph().draw_mermaid())
 
 config = RunnableConfig(recursion_limit=12)
 # ----------------------
@@ -170,17 +174,17 @@ if __name__ == "__main__":
         "recursion_limit": 20,  # give some room
     }
 
-    print("Starting agent...\n")
+    logger.info("Starting agent...\n")
 
     # First run: goes until interrupt_before generate_draft
     state_snapshot = None
     for chunk in graph.stream(inputs, config=config, stream_mode="values"):
         last_msg = chunk["messages"][-1]
         if isinstance(last_msg, AIMessage):
-            print("Agent:", last_msg.content.strip())
+            logger.info("Agent:", last_msg.content.strip())
             if last_msg.tool_calls:
-                print("→ Calling tools:", [c["name"] for c in last_msg.tool_calls])
-        print("-" * 60)
+                logger.info("→ Calling tools:", [c["name"] for c in last_msg.tool_calls])
+        logger.info("-" * 60)
 
         # Keep the last chunk to check if interrupted
         state_snapshot = chunk
@@ -188,9 +192,9 @@ if __name__ == "__main__":
     # Check if we hit the interrupt
     current_state = graph.get_state(config)
     if current_state.next == ("generate_draft",):  # means paused before generate_draft
-        print("\n=== HUMAN-IN-THE-LOOP PAUSE ===")
-        print("The agent wants to generate & send a revival email draft.")
-        print("Last agent message:", current_state.values["messages"][-1].content)
+        logger.info("\n=== HUMAN-IN-THE-LOOP PAUSE ===")
+        logger.info("The agent wants to generate & send a revival email draft.")
+        logger.info("Last agent message:", current_state.values["messages"][-1].content)
 
         # In real app: show draft preview in UI/dashboard/email/Slack
         # Here: simulate human review via console
@@ -204,13 +208,13 @@ if __name__ == "__main__":
             # edit/feedback
             resume_input = {"messages": [HumanMessage(content=f"Human feedback: {decision}. Revise the draft accordingly.")]}
 
-        print("\nResuming graph with human decision...\n")
+        logger.info("\nResuming graph with human decision...\n")
 
         # Resume the graph (re-runs from the interrupt point)
         for chunk in graph.stream(resume_input, config=config, stream_mode="values"):
             last_msg = chunk["messages"][-1]
             if isinstance(last_msg, AIMessage):
-                print("Agent (after resume):", last_msg.content.strip())
-            print("-" * 60)
+                logger.info("Agent (after resume):", last_msg.content.strip())
+            logger.info("-" * 60)
     else:
-        print("No interrupt reached in this run.")
+        logger.info("No interrupt reached in this run.")

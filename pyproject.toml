@@ -12,6 +12,7 @@ dependencies = [
     "langchain-groq>=1.1.2",
     "langchain-huggingface>=1.2.1",
     "langchain-text-splitters>=1.1.1",
+    "loguru>=0.7.3",
     "markupsafe<3.0.3",
     "prek>=0.3.6",
     "pydantic>=2.12.5",
