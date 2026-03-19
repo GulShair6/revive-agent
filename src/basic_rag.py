@@ -10,9 +10,14 @@ from langchain_core.output_parsers import StrOutputParser
 load_dotenv()
 
 # 1. Embeddings (local, no API calls)
+# embeddings = HuggingFaceEmbeddings(
+#     model_name="sentence-transformers/all-MiniLM-L6-v2",
+#     model_kwargs={"device": "cpu"},  # change to "cuda" if you have GPU
+# )
+
 embeddings = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2",
-    model_kwargs={"device": "cpu"},  # change to "cuda" if you have GPU
+    model_name="BAAI/bge-small-en-v1.5",  # or bge-base-en-v1.5 if you want stronger
+    model_kwargs={"device": "cpu"},
 )
 
 # 2. Sample sales context documents (in real app → load from CRM/email files)

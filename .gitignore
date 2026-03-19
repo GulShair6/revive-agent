@@ -13,3 +13,4 @@ wheels/
 .idea
 
 uv.lock
+chroma_db/**
