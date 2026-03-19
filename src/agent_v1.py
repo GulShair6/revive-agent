@@ -151,9 +151,11 @@ workflow.add_conditional_edges(
 workflow.add_edge("tools", "agent")  # loop back after tools
 workflow.add_edge("generate_draft", END)  # final output node
 
-# Compile after all nodes & edges are added
-graph = workflow.compile(checkpointer=MemorySaver())
-print(graph.get_graph().draw_mermaid())
+
+memory = MemorySaver()
+graph = workflow.compile(checkpointer=memory, interrupt_before=["generate_draft"])
+
+# print(graph.get_graph().draw_mermaid())
 
 config = RunnableConfig(recursion_limit=12)
 # ----------------------
@@ -163,16 +165,52 @@ if __name__ == "__main__":
     query = "Help revive the TechNova deal that went silent after proposal about integration concerns."
     inputs = {"messages": [HumanMessage(content=query)]}
 
-    config = {"recursion_limit": 12, "configurable": {"thread_id": "test_thread_1"}}
+    config = {
+        "configurable": {"thread_id": "test_thread_1"},
+        "recursion_limit": 20,  # give some room
+    }
 
     print("Starting agent...\n")
-    try:
-        for chunk in graph.stream(inputs, config=config, stream_mode="values"):
+
+    # First run: goes until interrupt_before generate_draft
+    state_snapshot = None
+    for chunk in graph.stream(inputs, config=config, stream_mode="values"):
+        last_msg = chunk["messages"][-1]
+        if isinstance(last_msg, AIMessage):
+            print("Agent:", last_msg.content.strip())
+            if last_msg.tool_calls:
+                print("→ Calling tools:", [c["name"] for c in last_msg.tool_calls])
+        print("-" * 60)
+
+        # Keep the last chunk to check if interrupted
+        state_snapshot = chunk
+
+    # Check if we hit the interrupt
+    current_state = graph.get_state(config)
+    if current_state.next == ("generate_draft",):  # means paused before generate_draft
+        print("\n=== HUMAN-IN-THE-LOOP PAUSE ===")
+        print("The agent wants to generate & send a revival email draft.")
+        print("Last agent message:", current_state.values["messages"][-1].content)
+
+        # In real app: show draft preview in UI/dashboard/email/Slack
+        # Here: simulate human review via console
+        decision = input("\nApprove draft? (y / n / edit <feedback>): ").strip().lower()
+
+        if decision.startswith("y"):
+            resume_input = None  # None = just continue to execute generate_draft
+        elif decision.startswith("n"):
+            resume_input = {"messages": [HumanMessage(content="Human rejected the draft. Stop and explain why.")]}
+        else:
+            # edit/feedback
+            resume_input = {"messages": [HumanMessage(content=f"Human feedback: {decision}. Revise the draft accordingly.")]}
+
+        print("\nResuming graph with human decision...\n")
+
+        # Resume the graph (re-runs from the interrupt point)
+        for chunk in graph.stream(resume_input, config=config, stream_mode="values"):
             last_msg = chunk["messages"][-1]
             if isinstance(last_msg, AIMessage):
-                print("Agent:", last_msg.content)
-                if last_msg.tool_calls:
-                    print("→ Calling tools:", [c["name"] for c in last_msg.tool_calls])
+                print("Agent (after resume):", last_msg.content.strip())
             print("-" * 60)
-    except Exception as e:
-        print("Execution failed:", str(e))
+    else:
+        print("No interrupt reached in this run.")
